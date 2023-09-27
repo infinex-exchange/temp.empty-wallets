@@ -17,31 +17,35 @@ class EmptyWallets {
         $th = $this;
         
         return $this -> amqp -> sub(
-            'mail',
+            'registerUser',
             function($body) use($th) {
-                return $th -> newMail($body);
-            }
+                return $th -> registerUser($body);
+            },
+            'empty_wallets',
+            true
         ) -> then(
             function() use($th) {
-                $th -> log -> info('Started mail queue consumer');
+                $th -> log -> info('Started empty wallets worker');
             }
         ) -> catch(
             function($e) use($th) {
-                $th -> log -> error('Failed to start mail queue consumer: '.((string) $e));
+                $th -> log -> error('Failed to start empty wallets worker: '.((string) $e));
                 throw $e;
             }
         );
     }
     
-    public function bind($amqp) {
+    public function stop() {
         $th = $this;
         
-        $amqp -> sub(
-            'registerUser',
-            function($body) use($th) {
-                return $th -> registerUser($body);
-            },
-            'empty_wallets'
+        return $this -> amqp -> unsub('empty_wallets') -> then(
+            function() use ($th) {
+                $th -> log -> info('Stopped empty wallets worker');
+            }
+        ) -> catch(
+            function($e) use($th) {
+                $th -> log -> error('Failed to stop empty wallets worker: '.((string) $e));
+            }
         );
     }
     
