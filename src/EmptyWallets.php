@@ -1,23 +1,43 @@
 <?php
 
-use Infinex\AMQP\RPCException;
-
 class EmptyWallets {
     private $log;
+    private $amqp;
     private $pdo;
     
-    function __construct($log, $pdo) {
+    function __construct($log, $amqp, $pdo) {
         $this -> log = $log;
+        $this -> amqp = $amqp;
         $this -> pdo = $pdo;
         
-        $this -> log -> debug('Initialized empty wallets manager');
+        $this -> log -> debug('Initialized empty wallets worker');
+    }
+    
+    public function start() {
+        $th = $this;
+        
+        return $this -> amqp -> sub(
+            'mail',
+            function($body) use($th) {
+                return $th -> newMail($body);
+            }
+        ) -> then(
+            function() use($th) {
+                $th -> log -> info('Started mail queue consumer');
+            }
+        ) -> catch(
+            function($e) use($th) {
+                $th -> log -> error('Failed to start mail queue consumer: '.((string) $e));
+                throw $e;
+            }
+        );
     }
     
     public function bind($amqp) {
         $th = $this;
         
         $amqp -> sub(
-            'register_user',
+            'registerUser',
             function($body) use($th) {
                 return $th -> registerUser($body);
             },
